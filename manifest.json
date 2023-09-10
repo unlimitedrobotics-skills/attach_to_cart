@@ -1,24 +1,6 @@
 {
-    "name": "attach_to_cart",
-    "description": "",
-    "type": "skill",
-    "version" : "0.2.0",
-    "dependencies" : {
-        "pip": [],
-        "skills": [
-            {
-                "name" : "approach_to_tags", 
-                "version" : "==0.6.0"
-            }
-        ]
-    },
-    "repository": {
-        "type": "git",
-        "url": "https://github.com/unlimitedrobotics-skills/attach_to_cart"
-    },
-    "license": "MIT",
-    "author": {
-        "name": "Nimrod Sadot",
-        "email": "nimrods@unlimited-robotics.com"
-    }
+    "version" : "1.0"
+//    "dependencies" : [
+//        {"name" : "raya", "version" : "0.7.0"}
+//    ]
 }
