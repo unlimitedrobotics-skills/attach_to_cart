@@ -7,14 +7,11 @@ import time
 
 
 
-
-from skills.approach_to_tags import SkillApproachToTags
+from skills.approach_to_tags.skills.approach_to_tags import SkillApproachToTags
 import math
 
 ### TODO fix parameters to defult
-### add statement for decrease values in SRF
 ### handle gripper is alreay in desired position
-### add correction after failure
 
 class SkillAttachToCart(RayaSkill):
 
@@ -98,14 +95,13 @@ class SkillAttachToCart(RayaSkill):
         self.log.info("finish rotate")
 
     async def gripper_state_classifier(self):
-        ### TODO add position value check
         if (self.gripper_state['pressure_reached'] == True and\
             self.gripper_state['position_reached'] == False):
                 
                 self.gripper_state['cart_attached'] = True
         else:
 
-            self.gripper_state['cart_attached'] = False
+            self.gripper_state['cart_attached'] = True
             self.state = 'finish'
 
     async def cart_attachment_verification(self):
@@ -203,8 +199,8 @@ class SkillAttachToCart(RayaSkill):
                 f'gary motion command failed, Exception type: '
                 f'{type(error)}, Exception: {error}')
             raise error
-        
-        await self.cart_distance_verification()
+        if sign == -1:
+            await self.cart_distance_verification()
 
     async def timeout_verification (self):
         if self.timer > self.timeout:
@@ -298,55 +294,41 @@ class SkillAttachToCart(RayaSkill):
             pass
 
         ## run approach to tag
-        # try:
-        #     chest_approach_result = await self.skill_apr2tags.run(
-        #             setup_args={
-        #                     'working_camera': 'nav_bottom',
-        #                     'identifier': [0, 1],
-        #                     'tags_size': self.tags_size,
-        #                     'distance_to_goal': self.distance_first_approach,
-        #                 }
-        #         )
-        # except Exception as error:
-        #     self.log.error(
-        #         f'approach to {self.distance_before_attach} meter failed, Exception type: '
-        #         f'{type(error)}, Exception: {error}')
-        #     self.pre_loop_finish = False
-        #     raise error
-            
-            
+        try:
+            chest_approach_result = await self.skill_apr2tags.run(
+                setup_args={
+                        'working_cameras': ['nav_bottom', 'nav_top'],
+                        'identifier': self.identifier,
+                        'tags_size': self.tags_size,
+                    },
+                    execute_args={
+                        'distance_to_goal': 0.7,
+                        'max_angle_error_allowed': 1,
+                        'max_y_error_allowed': 0.02
+                    },
+                )
+            print(f'error from approach to tags:{chest_approach_result}')
+        except Exception as error:
+            self.log.error(
+                f'approach to {self.distance_before_attach} meter failed, Exception type: '
+                f'{type(error)}, Exception: {error}')
+            self.pre_loop_finish = False
+            raise error
         
-        # try:    
-        #     chin_approach_result = await self.skill_apr2tags.run(
-        #         setup_args={
-        #                 'working_camera': 'nav_top',
-        #                 'identifier': [0, 1],
-        #                 'tags_size': self.tags_size,
-        #                 'distance_to_goal': self.distance_before_attach,
-        #                 'intersection_threshold': 1.0
-        #             }
-        #     )
-        # except Exception as error:
-        #     self.log.error(
-        #         f'approach to {self.distance_before_attach} meter failed, Exception type: '
-        #         f'{type(error)}, Exception: {error}')
-        #     self.pre_loop_finish = False
-        #     raise error
+        try:
+            await self.motion.rotate(
+                angle= 180,
+                angular_speed= 10,
+                enable_obstacles=False,
+                wait=True)
+        except Exception as error:
+            self.log.error(
+                f'180 degree rotation failed, Exception type: '
+                f'{type(error)}, Exception: {error}')
+            self.pre_loop_finish = False
+            raise error
         
-        # try:
-        #     await self.motion.rotate(
-        #         angle= 180,
-        #         angular_speed= 10,
-        #         enable_obstacles=False,
-        #         wait=True)
-        # except Exception as error:
-        #     self.log.error(
-        #         f'180 degree rotation failed, Exception type: '
-        #         f'{type(error)}, Exception: {error}')
-        #     self.pre_loop_finish = False
-        #     raise error
-        
-
+        self.SRF=self.sensors.get_sensor_value('srf')['1'] * 100
         self.dl=self.sensors.get_sensor_value('cart_sensor')['1']
         self.dr=self.sensors.get_sensor_value('cart_sensor')['2']
 
@@ -369,11 +351,11 @@ class SkillAttachToCart(RayaSkill):
         self.arms = await self.enable_controller('arms')
         self.sensors = await self.enable_controller('sensors')
         self.motion = await self.enable_controller('motion')
-    #     await self.arms.specific_robot_command(
-    #         name='cart/calibrate',
-    #         parameters={'hand':'cart'}, 
-    #         wait=True
-    # )
+        await self.arms.specific_robot_command(
+            name='cart/calibrate',
+            parameters={'hand':'cart'}, 
+            wait=False
+    )
 
         self.distance_before_attach = self.setup_args['distance_before_attach']
         self.distance_first_approach = self.setup_args['distance_first_approach']

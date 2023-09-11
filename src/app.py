@@ -1,7 +1,6 @@
 from raya.application_base import RayaApplicationBase
 
 from skills.attach_to_cart import SkillAttachToCart
-from skills.approach_to_tags import SkillApproachToTags
 
 
 class RayaApplication(RayaApplicationBase):
@@ -51,10 +50,9 @@ class RayaApplication(RayaApplicationBase):
         # )
         await self.skill_att2cart.run(
             setup_args={
-                'identifier': [0, 1],
+                'identifier': [1, 0],
                 'tags_size': 0.06,
             }
-
         )
 
 

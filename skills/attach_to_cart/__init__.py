@@ -1,2 +1,1 @@
 from skills.attach_to_cart.attach_to_cart import SkillAttachToCart
-from skills.approach_to_tags import SkillApproachToTags
