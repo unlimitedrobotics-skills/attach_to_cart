@@ -49,7 +49,13 @@ class RayaApplication(RayaApplicationBase):
         #         'intersection_threshold': 1.0
         #     }
         # )
-        await self.skill_att2cart.run()
+        await self.skill_att2cart.run(
+            setup_args={
+                'identifier': [0, 1],
+                'tags_size': 0.06,
+            }
+
+        )
 
 
 

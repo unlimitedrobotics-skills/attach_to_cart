@@ -3,6 +3,7 @@ from raya.controllers import MotionController
 from raya.application_base import RayaApplicationBase
 import asyncio
 from .constants import *
+import time
 
 
 
@@ -11,8 +12,8 @@ from skills.approach_to_tags import SkillApproachToTags
 import math
 
 ### TODO fix parameters to defult
-### add timeout to each function
 ### add statement for decrease values in SRF
+### handle gripper is alreay in desired position
 ### add correction after failure
 
 class SkillAttachToCart(RayaSkill):
@@ -21,7 +22,8 @@ class SkillAttachToCart(RayaSkill):
     DEFAULT_SETUP_ARGS = {
             'distance_before_attach': 0.5,
             'distance_first_approach':1.0,
-            'max_angle_step': 15.0
+            'max_angle_step': 15.0,
+            'timeout' : 60.0
             }
     REQUIRED_SETUP_ARGS = {
         'identifier'
@@ -36,41 +38,59 @@ class SkillAttachToCart(RayaSkill):
             self.sign = 1
 
         self.delta = self.dl - self.dr
-        self.angle  = math.tan(self.delta/self.base)/math.pi *180
+        # self.angle  = math.tan(self.delta/DISTANCE_BETWEEN_SRF_SENSORS)/math.pi *180
+        if (self.delta == 0):
+            self.normalized_delta = 0
+        else:
+            self.normalized_delta = abs(self.delta/(self.dl + self.dr))
         
     
     async def state_classifier(self):
         ### change to parameters
-        if ((self.dl<ROTATING_DISTANCE or self.dr<ROTATING_DISTANCE) and\
-             (self.dl+self.dr)/2 < ROTATING_DISTANCE_AV and\
-                  abs(self.angle) > ROTATING_ANGLE_MIN):
+        # if (abs(self.delta)>ROTATING_DELTA_MIN and\
+            #  self.normalized_delta > NORMALIZED_DELTA_MAX):
+        if ((self.SRF < 16) and \
+            self.normalized_delta > NORMALIZED_DELTA_MAX):
+
+        # if ((self.dl<ROTATING_DISTANCE or self.dr<ROTATING_DISTANCE) and\
+        #      (self.dl+self.dr)/2 < ROTATING_DISTANCE_AV and\
+        #           abs(self.angle) > ROTATING_ANGLE_MIN):
+
             self.state = 'rotating'
             return True
         
-        if ((self.dl < ATACHING_DISTANCE_MIN and\
-              self.dr < ATACHING_DISTANCE_MIN) or\
-                  (self.dl<ATACHING_DISTANCE_MAX and\
-                    self.dr<ATACHING_DISTANCE_MAX and\
-                          abs(self.angle)<ATACHING_ANGLE_MAX)):
+        # if ((self.dl < ATACHING_DISTANCE_MIN and\
+            #   self.dr < ATACHING_DISTANCE_MIN) or\
+                #   (self.dl<ATACHING_DISTANCE_MAX and\
+                    # self.dr<ATACHING_DISTANCE_MAX and\
+                        #   abs(self.angle)<ATACHING_ANGLE_MAX)):
+            # self.state = 'attaching'
+            # return True
+        elif ((self.dl > ATACHING_DISTANCE_MIN and\
+              self.dr > ATACHING_DISTANCE_MIN) or\
+                  (self.dl>ATACHING_DISTANCE_MAX and\
+                    self.dr>ATACHING_DISTANCE_MAX and\
+                          self.normalized_delta < NORMALIZED_DELTA_MIN)):
             self.state = 'attaching'
             return True
         
         else:
             self.state = 'moving'
             return True
-        
-    ## TODO adjust
+    async def timer_update(self):
+        self.timer = time.time() - self.start_time
+
     async def adjust_angle(self):
-        if (self.angle > self.max_angle_step):
-            self.angle = self.max_angle_step
+        # if (self.angle > self.max_angle_step):
+        #     self.angle = self.max_angle_step
         is_moving = self.motion.is_moving()
 
         if (is_moving):
             await self.motion.cancel_motion()
 
         await self.motion.rotate(
-            angle= abs(self.angle)/360 * 100,
-            angular_speed= self.sign * ROTATING_ANGULAR_SPEED,
+            angle= ROTATING_CONST * self.normalized_delta,
+            angular_speed = self.sign * ROTATING_ANGULAR_SPEED,
             enable_obstacles=False,
             wait=True)
             
@@ -89,11 +109,11 @@ class SkillAttachToCart(RayaSkill):
 
     async def cart_attachment_verification(self):
         self.log.info('run cart_attachment_verification')
-        verification_dl=self.dl
-        verification_dr=self.dr
-        verification_delta = verification_dl - verification_dr
-        verification_angle  = abs(math.tan(verification_delta/DISTANCE_BETWEEN_SRF_SENSORS)/math.pi *180)
-
+        # verification_dl=self.dl
+        # verification_dr=self.dr
+        # verification_delta = verification_dl - verification_dr
+        # verification_angle  = abs(math.tan(verification_delta/DISTANCE_BETWEEN_SRF_SENSORS)/math.pi *180)
+        verification_SRF_value=self.SRF
         await self.motion.set_velocity(
                 x_velocity = LINEAR_MOVING_VELOCITY,
                 y_velocity = 0.0,
@@ -103,14 +123,12 @@ class SkillAttachToCart(RayaSkill):
                 wait=False, 
                 )
         while (self.motion.is_moving()):
-            dl=self.sensors.get_sensor_value('srf')['3'] * 100
-            dr=self.sensors.get_sensor_value('srf')['0'] * 100
-            delta = dl - dr
-            angle  = abs(math.tan(delta/DISTANCE_BETWEEN_SRF_SENSORS)/math.pi * 180)
+            await self.read_sensor_values()
+            await self.calculate_distance_parameters()
             
-            if abs(angle-verification_angle) > VERIFICATION_ANGLE or\
-                  verification_dl-dl > VERIFICATION_DISTANCE or\
-                      verification_dr-dr > VERIFICATION_DISTANCE:
+            # angle  = abs(math.tan(delta/DISTANCE_BETWEEN_SRF_SENSORS)/math.pi * 180)
+            
+            if abs(verification_SRF_value - self.SRF) > VERIFICATION_DISTANCE:
                 self.cart_status['cart_attached'] = False
                 break
 
@@ -148,6 +166,7 @@ class SkillAttachToCart(RayaSkill):
 
             if cart_attached:
                 self.state = 'attach_verification'
+                await self.cart_attachment_verification()
             else:
                 self.state = 'finish'
             
@@ -171,16 +190,45 @@ class SkillAttachToCart(RayaSkill):
 
     async def move_backwared(self):
         ### TODO try axcept
-        await self.motion.set_velocity(
-                    x_velocity= -1 * LINEAR_MOVING_VELOCITY,
-                    y_velocity=0.0,
-                    angular_velocity=0.0,
-                    duration=2.0,
-                    enable_obstacles=False,
-                    wait=False,
-                )
-
+        try:
+            await self.motion.set_velocity(
+                        x_velocity= -1 * LINEAR_MOVING_VELOCITY,
+                        y_velocity=0.0,
+                        angular_velocity=0.0,
+                        duration=2.0,
+                        enable_obstacles=False,
+                        wait=False,
+                    )
+        except Exception as error:
+            self.log.error(
+                f'gary motion command failed, Exception type: '
+                f'{type(error)}, Exception: {error}')
+            raise error
         
+        await self.cart_distance_verification()
+
+    async def timeout_verification (self):
+        if self.timer > self.timeout:
+            self.log.warn('loop timeout reached,'
+                          f'timeout: {self.timeout}')
+            self.state = 'finish'
+
+    async def cart_initial_distance_verification (self):
+        if self.SRF > MAX_INITIAL_DISTANCE:
+            self.log.warn('cart is too far or not accessable,'
+                          f'distance: {self.SRF}')
+            self.state = 'finish'
+
+    async def cart_distance_verification (self):
+        if self.last_SRF < self.SRF:
+                self.log.info(f'last SRF: {self.last_SRF} current SRF: {self.SRF}')
+                self.pushing_index += 1
+        else:
+            self.pushing_index = 0
+
+        if self.pushing_index > POSITION_VERIFICATION_INDEX:
+            self.log.warn('error, cart is not getting closer')
+            self.state = 'finish'
 
 
     async def pre_loop_actions(self):
@@ -198,9 +246,9 @@ class SkillAttachToCart(RayaSkill):
                                                         }, 
                                                     wait=True,
                                                 )
-            # self.log.info('gripper_result: ',type(gripper_result))
-            # await self.gripper_feedback_cb(gripper_result)
-            # print(gripper_result)
+            self.log.info(f'gripper_result: {type(gripper_result)}')
+            await self.gripper_feedback_cb(gripper_result)
+            print(gripper_result)
         # except RayaApplicationNotRegistered:
         #     pass
         except Exception as error:
@@ -215,7 +263,7 @@ class SkillAttachToCart(RayaSkill):
         #             setup_args={
         #                     'working_camera': 'nav_bottom',
         #                     'identifier': [0, 1],
-        #                     'tags_size': self.tag_size,
+        #                     'tags_size': self.tags_size,
         #                     'distance_to_goal': self.distance_first_approach,
         #                 }
         #         )
@@ -233,7 +281,7 @@ class SkillAttachToCart(RayaSkill):
         #         setup_args={
         #                 'working_camera': 'nav_top',
         #                 'identifier': [0, 1],
-        #                 'tags_size': self.tag_size,
+        #                 'tags_size': self.tags_size,
         #                 'distance_to_goal': self.distance_before_attach,
         #                 'intersection_threshold': 1.0
         #             }
@@ -258,11 +306,20 @@ class SkillAttachToCart(RayaSkill):
         #     self.pre_loop_finish = False
         #     raise error
         
+
+        self.dl=self.sensors.get_sensor_value('cart_sensor')['1']
+        self.dr=self.sensors.get_sensor_value('cart_sensor')['2']
+
         return self.pre_loop_finish
             
-    async def read_srf_values(self):
-        self.dl=self.sensors.get_sensor_value('srf')['3'] * 100
-        self.dr=self.sensors.get_sensor_value('srf')['0'] * 100
+    async def read_sensor_values(self):
+        self.last_dl = self.dl
+        self.last_dr = self.dr
+        self.last_SRF = self.SRF
+
+        self.dl=self.sensors.get_sensor_value('cart_sensor')['1']
+        self.dr=self.sensors.get_sensor_value('cart_sensor')['2']
+        self.SRF=self.sensors.get_sensor_value('srf')['1'] * 100
 
 
     async def setup(self):
@@ -276,11 +333,16 @@ class SkillAttachToCart(RayaSkill):
         self.distance_before_attach = self.setup_args['distance_before_attach']
         self.distance_first_approach = self.setup_args['distance_first_approach']
         self.max_angle_step = self.setup_args['max_angle_step']
-        self.tag_size = self.setup_args['tag_size']
+        self.tags_size = self.setup_args['tags_size']
         self.identifier = self.setup_args['identifier']
+        self.timeout = self.setup_args['timeout']
+        self.SRF = 0
         self.sign = 1
         self.state = 'idle'
+        self.normalized_delta = 0
         self.angle = 0
+        self.pushing_index = 0
+        
 
         self.gripper_state = {'final_position': 0.0,
                             'final_pressure': 0.0,
@@ -289,6 +351,7 @@ class SkillAttachToCart(RayaSkill):
                             'success': False,
                             'timeout_reached': False,
                             'cart_attached': False}
+        
 
 
     async def main(self):
@@ -297,32 +360,44 @@ class SkillAttachToCart(RayaSkill):
         self.log.info('SkillAttachToCart.main')
 
         await self.pre_loop_actions()
+        self.start_time = time.time()
+        self.timer = self.start_time
+        await self.read_sensor_values()
 
+        await self.cart_initial_distance_verification()
         while (True):
+            # self.log.info(f'state is: {self.state}')
     
-            await self.read_srf_values()
+            await self.read_sensor_values()
+
+            await self.timer_update()
+
+            await self.timeout_verification()
 
             await self.calculate_distance_parameters()
 
-            await self.state_classifier()
+            if self.state == 'finish':
+                            cart_attached = self.gripper_state['cart_attached']
+                            self.log.info('application finished, cart attachment is: '\
+                                        f'{cart_attached}')
+                            break
+            else:
+                await self.state_classifier()
 
             if self.state == 'moving':
                 await self.move_backwared()
                 
             elif (self.state == 'rotating'):
+                self.pushing_index = 0
                 await self.adjust_angle()
 
             elif self.state == 'attaching':
                 await self.attach() 
 
-            elif self.state == 'attach_verification':
-                await self.cart_attachment_verification()
+            # elif self.state == 'attach_verification':
+            #     await self.cart_attachment_verification()
 
-            elif self.state == 'finish':
-                cart_attached = self.gripper_state['cart_attached']
-                self.log.info('application finished, cart attachment is: '\
-                              f'{cart_attached}')
-                break
+            
                 
             await asyncio.sleep(0.2)
 
