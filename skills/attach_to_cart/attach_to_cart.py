@@ -24,8 +24,8 @@ class SkillAttachToCart(RayaSkill):
             'retry_iter': 2
             }
     REQUIRED_SETUP_ARGS = {
-        'identifier'
-        'tag_size'
+        'identifier',
+        'tags_size'
     }
     
 
