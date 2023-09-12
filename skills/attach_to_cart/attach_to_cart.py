@@ -40,8 +40,11 @@ class SkillAttachToCart(RayaSkill):
         
     async def calculate_velocity(self):
         ### calculate velocity with respect to distance from cart
-        self.normalized_delta_position = 1-((CART_MAX_DISTANCE - self.SRF)/CART_MAX_DISTANCE)
-        self.linear_velocity = MAX_LINEAR_MOVING_VELOCITY * self.normalized_delta_position
+        self.normalized_delta_position = \
+            1-((CART_MAX_DISTANCE - self.SRF)/CART_MAX_DISTANCE)
+        
+        self.linear_velocity = \
+            MAX_LINEAR_MOVING_VELOCITY * self.normalized_delta_position
         if self.linear_velocity < MIN_LINEAR_MOVING_VELOCITY:
             self.linear_velocity = MIN_LINEAR_MOVING_VELOCITY
         elif self.linear_velocity > MAX_LINEAR_MOVING_VELOCITY:
@@ -126,16 +129,16 @@ class SkillAttachToCart(RayaSkill):
             await self.motion.cancel_motion()
         try:
             gripper_result = await self.arms.specific_robot_command(
-                                                    name='cart/execute',
-                                                    parameters={
-                                                            'gripper':'cart',
-                                                            'goal':GRIPPER_CLOSE_POSITION,
-                                                            'velocity':0.5,
-                                                            'pressure':GRIPPER_CLOSE_PRESSURE_CONST,
-                                                            'timeout':10.0
-                                                        }, 
-                                                    wait=True,
-                                                )
+                            name='cart/execute',
+                            parameters={
+                                    'gripper':'cart',
+                                    'goal':GRIPPER_CLOSE_POSITION,
+                                    'velocity':0.5,
+                                    'pressure':GRIPPER_CLOSE_PRESSURE_CONST,
+                                    'timeout':10.0
+                                }, 
+                            wait=True,
+                        )
             await self.gripper_feedback_cb(gripper_result)
             await self.gripper_state_classifier()
             cart_attached = self.gripper_state['cart_attached']
@@ -157,7 +160,7 @@ class SkillAttachToCart(RayaSkill):
             pass
 
     async def gripper_feedback_cb(self, gripper_result):
-        self.gripper_state['final_position'] =  gripper_result['final_position']
+        self.gripper_state['final_position'] = gripper_result['final_position']
         self.gripper_state['final_pressure'] = gripper_result['final_pressure']
         self.gripper_state['position_reached'] = gripper_result['position_reached']
         self.gripper_state['pressure_reached'] = gripper_result['pressure_reached']
@@ -215,24 +218,24 @@ class SkillAttachToCart(RayaSkill):
         self.pre_loop_finish = True
         try:
             gripper_result = await self.arms.specific_robot_command(
-                                                    name='cart/execute',
-                                                    parameters={
-                                                            'gripper':'cart',
-                                                            'goal':GRIPPER_OPEN_POSITION,
-                                                            'velocity':0.5,
-                                                            'pressure':GRIPPER_OPEN_PRESSURE_CONST,
-                                                            'timeout':10.0
-                                                        }, 
-                                                    wait=False,
-                                                )
+                            name='cart/execute',
+                            parameters={
+                                    'gripper':'cart',
+                                    'goal':GRIPPER_OPEN_POSITION,
+                                    'velocity':0.5,
+                                    'pressure':GRIPPER_OPEN_PRESSURE_CONST,
+                                    'timeout':10.0
+                                }, 
+                            wait=False,
+                        )
             self.log.info(f'gripper_result: {type(gripper_result)}')
             await self.gripper_feedback_cb(gripper_result)
             print(gripper_result)
 
         except Exception as error:
                 self.log.error(
-                    f'gripper open to pre-grab position failed, Exception type: '
-                    f'{type(error)}, Exception: {error}')
+                    f'gripper open to pre-grab position failed, Exception '
+                    f'type: {type(error)}, Exception: {error}')
                 pass
         # run approach to tag
         try:
@@ -377,7 +380,7 @@ class SkillAttachToCart(RayaSkill):
                 self.pushing_index = 0
                 await self.adjust_angle()
 
-            elif self.state == 'attaching': ## attach and verify cart attachment
+            elif self.state == 'attaching': ##attach and verify cart attachment
                 await self.attach() 
 
             
