@@ -7,7 +7,7 @@ import time
 
 
 
-from skills.approach_to_tags.skills.approach_to_tags import SkillApproachToTags
+from skills.approach_to_tags import SkillApproachToTags
 
 
 class SkillAttachToCart(RayaSkill):
