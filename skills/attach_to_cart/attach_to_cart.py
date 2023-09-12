@@ -10,8 +10,6 @@ import time
 from skills.approach_to_tags.skills.approach_to_tags import SkillApproachToTags
 import math
 
-### TODO fix parameters to defult
-### handle gripper is alreay in desired position
 
 class SkillAttachToCart(RayaSkill):
 
@@ -20,8 +18,8 @@ class SkillAttachToCart(RayaSkill):
             'distance_before_attach': 0.6,
             'distance_first_approach':1.0,
             'max_angle_step': 15.0,
-            'timeout' : 60.0,
-            'retry_iter': 2
+            'timeout' : 60.0
+
             }
     REQUIRED_SETUP_ARGS = {
         'identifier',
@@ -36,34 +34,27 @@ class SkillAttachToCart(RayaSkill):
             self.sign = 1
 
         self.delta = self.dl - self.dr
-        # self.angle  = math.tan(self.delta/DISTANCE_BETWEEN_SRF_SENSORS)/math.pi *180
         if (self.delta == 0):
             self.normalized_delta = 0
         else:
             self.normalized_delta = abs(self.delta/(self.dl + self.dr))
         
-    
+    async def calculate_velocity(self):
+        self.normalized_delta_position = 1-(MAX_INITIAL_DISTANCE - self.SRF)/MAX_INITIAL_DISTANCE
+        self.linear_velocity = MAX_LINEAR_MOVING_VELOCITY * self.normalized_delta_position
+        if self.linear_velocity < MIN_LINEAR_MOVING_VELOCITY:
+            self.linear_velocity = MIN_LINEAR_MOVING_VELOCITY
+        elif self.linear_velocity > MAX_LINEAR_MOVING_VELOCITY:
+            self.linear_velocity = MAX_LINEAR_MOVING_VELOCITY
+
     async def state_classifier(self):
         ### change to parameters
         if (abs(self.delta)>ROTATING_DELTA_MIN and\
              self.normalized_delta > NORMALIZED_DELTA_MAX):
-        # if ((self.SRF < 16) and \
-        #     self.normalized_delta > NORMALIZED_DELTA_MAX):
-
-        # if ((self.dl<ROTATING_DISTANCE or self.dr<ROTATING_DISTANCE) and\
-        #      (self.dl+self.dr)/2 < ROTATING_DISTANCE_AV and\
-        #           abs(self.angle) > ROTATING_ANGLE_MIN):
 
             self.state = 'rotating'
             return True
-        
-        # if ((self.dl < ATACHING_DISTANCE_MIN and\
-            #   self.dr < ATACHING_DISTANCE_MIN) or\
-                #   (self.dl<ATACHING_DISTANCE_MAX and\
-                    # self.dr<ATACHING_DISTANCE_MAX and\
-                        #   abs(self.angle)<ATACHING_ANGLE_MAX)):
-            # self.state = 'attaching'
-            # return True
+
         elif ((self.dl > ATACHING_DISTANCE_MIN and\
               self.dr > ATACHING_DISTANCE_MIN) or\
                   (self.dl>ATACHING_DISTANCE_MAX and\
@@ -79,8 +70,7 @@ class SkillAttachToCart(RayaSkill):
         self.timer = time.time() - self.start_time
 
     async def adjust_angle(self):
-        # if (self.angle > self.max_angle_step):
-        #     self.angle = self.max_angle_step
+
         is_moving = self.motion.is_moving()
 
         if (is_moving):
@@ -112,12 +102,10 @@ class SkillAttachToCart(RayaSkill):
         while (self.motion.is_moving()):
             await self.read_sensor_values()
             await self.calculate_distance_parameters()
-            
-            # angle  = abs(math.tan(delta/DISTANCE_BETWEEN_SRF_SENSORS)/math.pi * 180)
-            # self.log.info(f'SRF delta: {abs(verification_SRF_value - self.SRF)}')
+
             if abs(verification_SRF_value - self.SRF) > VERIFICATION_DISTANCE:
                 self.gripper_state['cart_attached'] = False
-                self.state = 'reposition'
+                self.state = 'finish'
                 break
 
             await asyncio.sleep(0.2)
@@ -146,7 +134,6 @@ class SkillAttachToCart(RayaSkill):
                                                         }, 
                                                     wait=True,
                                                 )
-            # self.log.info(gripper_result)
             await self.gripper_feedback_cb(gripper_result)
             await self.gripper_state_classifier()
             cart_attached = self.gripper_state['cart_attached']
@@ -156,19 +143,15 @@ class SkillAttachToCart(RayaSkill):
                 self.state = 'attach_verification'
                 await self.cart_attachment_verification()
             else:
-                self.state = 'reposition'
+                self.state = 'finish'
             
 
-        # except RayaApplicationNotRegistered:
-        #     pass
         except Exception as error:
-            # if isinstance(error, RayaUnknownServerError):
-            #     pass
-            # else:
-            #     self.log.error(
-            #         f'gripper attachment failed, Exception type: '
-            #         f'{type(error)}, Exception: {error}')
-            #     raise error
+
+            self.log.error(
+                f'gripper attachment failed, Exception type: '
+                f'{type(error)}, Exception: {error}')
+
             pass
 
     async def gripper_feedback_cb(self, gripper_result):
@@ -182,9 +165,10 @@ class SkillAttachToCart(RayaSkill):
 
     async def move_linear(self, sign, wait = False):
         ### TODO try axcept
+        await self.calculate_velocity()
         try:
             await self.motion.set_velocity(
-                        x_velocity= sign * LINEAR_MOVING_VELOCITY,
+                        x_velocity= sign * self.linear_velocity,
                         y_velocity=0.0,
                         angular_velocity=0.0,
                         duration=2.0,
@@ -220,45 +204,11 @@ class SkillAttachToCart(RayaSkill):
 
         if self.pushing_index > POSITION_VERIFICATION_INDEX:
             self.log.warn('error, cart is not getting closer')
-            self.state = 'reposition'
+            self.state = 'finish'
 
     # async def check_if_retry_possible(self):
 
-    async def reposition (self):
-        pass
-        # await self.read_sensor_values()
 
-        # self.log.info(f'repositioning, iteration: {self.retry_current_iteration}')
-        # try:
-        #     gripper_result = await self.arms.specific_robot_command(
-        #                                             name='cart/execute',
-        #                                             parameters={
-        #                                                     'gripper':'cart',
-        #                                                     'goal':GRIPPER_OPEN_POSITION,
-        #                                                     'velocity':0.5,
-        #                                                     'pressure':GRIPPER_OPEN_PRESSURE_CONST,
-        #                                                     'timeout':10.0
-        #                                                 }, 
-        #                                             wait=True,
-        #                                         )
-        #     await self.gripper_feedback_cb(gripper_result)
-        #     # print(gripper_result)
-        # # except RayaApplicationNotRegistered:
-        # #     pass
-        # except Exception as error:
-        #     self.log.error(
-        #         f'gripper open to pre-grab position failed, Exception type: '
-        #         f'{type(error)}, Exception: {error}')
-        #     raise error
-        # await self.read_sensor_values()
-        # if self.SRF < 30:
-        #     await self.move_linear(sign = 1)
-        #     await self.read_sensor_values()
-        #     await self.calculate_distance_parameters()
-        #     await self.adjust_angle()
-        #     self.state = 'move'
-        # else:
-        #     self.state = 'move'
             
     async def pre_loop_actions(self):
         ### move gripper to pre-grab position
@@ -278,17 +228,12 @@ class SkillAttachToCart(RayaSkill):
             self.log.info(f'gripper_result: {type(gripper_result)}')
             await self.gripper_feedback_cb(gripper_result)
             print(gripper_result)
-        # except RayaApplicationNotRegistered:
-        #     pass
+
         except Exception as error:
-            # if isinstance(error, RayaUnknownServerError):
-            #     pass
-            # else:
-            #     self.log.error(
-            #         f'gripper open to pre-grab position failed, Exception type: '
-            #         f'{type(error)}, Exception: {error}')
-            #     raise error
-            pass
+                self.log.error(
+                    f'gripper open to pre-grab position failed, Exception type: '
+                    f'{type(error)}, Exception: {error}')
+                pass
 
         # run approach to tag
         try:
@@ -360,8 +305,9 @@ class SkillAttachToCart(RayaSkill):
         self.tags_size = self.setup_args['tags_size']
         self.identifier = self.setup_args['identifier']
         self.timeout = self.setup_args['timeout']
-        self.retry_req_iterations = self.setup_args['retry_iter']
-        self.retry_current_iteration = 0
+        # self.retry_req_iterations = self.setup_args['retry_iter']
+        # self.retry_current_iteration = 0
+        self.linear_velocity = 0
         self.SRF = 0
         self.sign = 1
         self.state = 'idle'
@@ -403,16 +349,8 @@ class SkillAttachToCart(RayaSkill):
             await self.calculate_distance_parameters()
 
  
-            if self.state == "reposition":
-                if self.retry_current_iteration < self.retry_req_iterations:
-                    await self.reposition()
-                else:
-                    # self.log.warn('attaching failed after'
-                                    # f'{self.retry_req_iterations}')
-                    self.state = 'finish'   
-                self.retry_current_iteration += 1
-
-            elif self.state == 'finish':
+           
+            if self.state == 'finish':
                 cart_attached = self.gripper_state['cart_attached']
                 self.log.info('application finished, cart attachment is: '\
                             f'{cart_attached}')
