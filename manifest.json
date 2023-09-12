@@ -2,13 +2,13 @@
     "name": "attach_to_cart",
     "description": "",
     "type": "skill",
-    "version": "0.2.2.dev",
+    "version": "0.2.3.dev",
     "dependencies": {
         "pip": [],
         "skills": [
             {
                 "name": "approach_to_tags",
-                "version": "==0.9.2"
+                "version": "==0.9.3.dev"
             }
         ]
     },
