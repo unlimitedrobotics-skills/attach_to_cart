@@ -90,8 +90,8 @@ class SkillAttachToCart(RayaSkill):
                 
                 self.gripper_state['cart_attached'] = True
         else:
-
             self.gripper_state['cart_attached'] = True
+            self.abort(4,'gripper atachment failed')
 
     async def cart_attachment_verification(self):
         self.log.info('run cart_attachment_verification')
@@ -113,6 +113,8 @@ class SkillAttachToCart(RayaSkill):
         self.log.info(f'cart verification is: {cart_attached}')
         if cart_attached:
             self.state = 'finish'
+        else:
+            self.abort (3,'cart was not attached')
         
         
     async def attach(self):
@@ -185,13 +187,13 @@ class SkillAttachToCart(RayaSkill):
 
     async def timeout_verification (self):
         if self.timer > self.timeout:
-            self.log.error('loop timeout reached,'
+            self.abort(1,'loop timeout reached,'
                           f'timeout: {self.timeout}')
             self.state = 'finish'
 
     async def cart_max_distance_verification (self):
         if self.SRF > CART_MAX_DISTANCE:
-            self.log.error('cart is too far or not accessable,'
+            self.abort(0, 'cart is too far or not accessable,'
                           f'distance: {self.SRF}')
             self.state = 'finish'
 
@@ -245,14 +247,15 @@ class SkillAttachToCart(RayaSkill):
                         'max_angle_error_allowed': 1,
                         'max_y_error_allowed': 0.02
                     },
+                    callback_feedback=self.cb_approach_feedback
                 )
-            print(f'error from approach to tags:{chest_approach_result}')
+            self.log.debug(chest_approach_result)
         except Exception as error:
-            self.log.error(
+            self.abort(4,
                 f'approach to {self.distance_before_attach} meter failed, Exception type: '
                 f'{type(error)}, Exception: {error}')
             self.pre_loop_finish = False
-            raise error
+            # raise error
         
         # rotate gary 180 degrees
         try:
@@ -378,3 +381,6 @@ class SkillAttachToCart(RayaSkill):
 
     async def finish(self):
         self.log.info('SkillAttachToCart.finish')
+
+    async def cb_approach_feedback(self, feedback):
+        self.log.debug(feedback)
