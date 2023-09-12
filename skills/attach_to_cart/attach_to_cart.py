@@ -14,10 +14,10 @@ class SkillAttachToCart(RayaSkill):
 
 
     DEFAULT_SETUP_ARGS = {
-            'distance_before_attach': 0.6,
-            'distance_first_approach':1.0,
-            'max_angle_step': 15.0,
-            'timeout' : 60.0
+            'distance_before_attach': DEFAULT_FINAL_APPROACH_DISTANCE,
+            'distance_first_approach':DEFAULT_FIRST_APPROACH_DISTANCE,
+            'max_angle_step': DEFAULT_MAX_ANGLE_STEP,
+            'timeout' : FULL_APP_TIMEOUT,
 
             }
     REQUIRED_SETUP_ARGS = {
@@ -91,7 +91,7 @@ class SkillAttachToCart(RayaSkill):
                 self.gripper_state['cart_attached'] = True
         else:
             self.gripper_state['cart_attached'] = True
-            self.abort(4,'gripper atachment failed')
+            self.abort(ERROR_GRIPPER_ATTACHMENT_FAILED)
 
     async def cart_attachment_verification(self):
         self.log.info('run cart_attachment_verification')
@@ -114,7 +114,7 @@ class SkillAttachToCart(RayaSkill):
         if cart_attached:
             self.state = 'finish'
         else:
-            self.abort (3,'cart was not attached')
+            self.abort (ERROR_CART_NOT_ATTACHED)
         
         
     async def attach(self):
@@ -178,23 +178,24 @@ class SkillAttachToCart(RayaSkill):
                         wait = wait,
                     )
         except Exception as error:
-            self.log.error(
-                f'gary motion command failed, Exception type: '
-                f'{type(error)}, Exception: {error}')
-            raise error
+            ERROR = [*ERROR_LINEAR_MOVEMENT_FAILED]
+            ERROR[1] += f'{type(error)}, Exception: {error}'
+            self.log.abort(*ERROR)
         if sign == -1:
             await self.cart_distance_verification()
 
     async def timeout_verification (self):
         if self.timer > self.timeout:
-            self.abort(1,'loop timeout reached,'
-                          f'timeout: {self.timeout}')
+            ERROR = [*ERROR_TIMEOUT_REACHED]
+            ERROR[1] +=  f'timeout: {self.timeout}'
+            self.abort(*ERROR)
             self.state = 'finish'
 
     async def cart_max_distance_verification (self):
         if self.SRF > CART_MAX_DISTANCE:
-            self.abort(0, 'cart is too far or not accessable,'
-                          f'distance: {self.SRF}')
+            ERROR = [*ERROR_CART_NOT_ACCESSABLE]
+            ERROR[1] +=  f'distance: {self.SRF}'
+            self.abort(*ERROR)
             self.state = 'finish'
 
     async def cart_distance_verification (self):
@@ -233,7 +234,6 @@ class SkillAttachToCart(RayaSkill):
                     f'gripper open to pre-grab position failed, Exception type: '
                     f'{type(error)}, Exception: {error}')
                 pass
-
         # run approach to tag
         try:
             chest_approach_result = await self.skill_apr2tags.run(
@@ -244,24 +244,26 @@ class SkillAttachToCart(RayaSkill):
                     },
                     execute_args={
                         'distance_to_goal': self.distance_before_attach,
-                        'max_angle_error_allowed': 1,
-                        'max_y_error_allowed': 0.02
+                        'max_angle_error_allowed': MAX_ANGLE_ERROR_ALLOWED,
+                        'max_y_error_allowed': MAX_Y_ERROR_ALLOWED
                     },
                     callback_feedback=self.cb_approach_feedback
                 )
             self.log.debug(chest_approach_result)
+
         except Exception as error:
-            self.abort(4,
-                f'approach to {self.distance_before_attach} meter failed, Exception type: '
-                f'{type(error)}, Exception: {error}')
+            ERROR = [*ERROR_APPROACH_FAILED]
+            ERROR[1] +=  f'{type(error)}, Exception: {error}'
+            self.abort(*ERROR)
+            self.state = 'finish'
             self.pre_loop_finish = False
-            # raise error
+            
         
         # rotate gary 180 degrees
         try:
             await self.motion.rotate(
-                angle= 180,
-                angular_speed= 10,
+                angle = PRE_ATTACH_ANGLE,
+                angular_speed= PRE_ATTACH_RUTATION_SPEED,
                 enable_obstacles=False,
                 wait=True)
         except Exception as error:
@@ -272,8 +274,10 @@ class SkillAttachToCart(RayaSkill):
             raise error
         
         # small angle adjusment
-        self.dl=self.sensors.get_sensor_value('cart_sensor')['1']
-        self.dr=self.sensors.get_sensor_value('cart_sensor')['2']
+        self.dl=self.sensors.get_sensor_value('cart_sensor')\
+            [f'{IR_SENSOR_ID_LEFT}']
+        self.dr=self.sensors.get_sensor_value('cart_sensor')\
+            [f'{IR_SENSOR_ID_RIGHT}']
         # await self.read_sensor_values()
         # await self.calculate_distance_parameters()
         # await self.adjust_angle()
@@ -286,9 +290,12 @@ class SkillAttachToCart(RayaSkill):
         self.last_dr = self.dr
         self.last_SRF = self.SRF
 
-        self.dl=self.sensors.get_sensor_value('cart_sensor')['1']
-        self.dr=self.sensors.get_sensor_value('cart_sensor')['2']
-        self.SRF=self.sensors.get_sensor_value('srf')['1'] * 100
+        self.dl=self.sensors.get_sensor_value('cart_sensor')\
+            [f'{IR_SENSOR_ID_LEFT}']
+        self.dr=self.sensors.get_sensor_value('cart_sensor')\
+            [f'{IR_SENSOR_ID_RIGHT}']
+        self.SRF=self.sensors.get_sensor_value('srf')\
+            [f'{SRF_SENSOR_ID_CENTER}'] * 100
 
 
     async def setup(self):
