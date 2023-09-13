@@ -10,6 +10,10 @@ import time
 from skills.approach_to_tags import SkillApproachToTags
 
 
+class SkillAttachToCartError(Exception): pass
+class SkillAttachToCartErrorGripper(SkillAttachToCartError): pass
+
+
 class SkillAttachToCart(RayaSkill):
 
 
@@ -18,8 +22,8 @@ class SkillAttachToCart(RayaSkill):
             'distance_first_approach':DEFAULT_FIRST_APPROACH_DISTANCE,
             'max_angle_step': DEFAULT_MAX_ANGLE_STEP,
             'timeout' : FULL_APP_TIMEOUT,
-
             }
+    
     REQUIRED_SETUP_ARGS = {
         'identifier',
         'tags_size'
@@ -88,36 +92,51 @@ class SkillAttachToCart(RayaSkill):
         self.log.info("finish rotate")
 
     async def gripper_state_classifier(self):
-        if (self.gripper_state['pressure_reached'] == True and\
-            self.gripper_state['position_reached'] == False):
-                
+
+        verification_max_position = GRIPPER_ATTACHED_POSITION + \
+        GRIPPER_ATTACHED_THRESHOLD
+        verification_min_position = GRIPPER_ATTACHED_POSITION - \
+        GRIPPER_ATTACHED_THRESHOLD
+
+        ### TODO uncomment when real jig is ready
+
+        # if (self.gripper_state['pressure_reached'] == False and\
+            # self.gripper_state['final_position']<verification_max_position and\
+            # self.gripper_state['final_position']>verification_min_position):
+        if (self.gripper_state['final_position']<verification_max_position and\
+            self.gripper_state['final_position']>verification_min_position):                
                 self.gripper_state['cart_attached'] = True
         else:
-            self.gripper_state['cart_attached'] = True
-            self.abort(ERROR_GRIPPER_ATTACHMENT_FAILED)
+            self.gripper_state['cart_attached'] = False
+            self.abort(*ERROR_GRIPPER_ATTACHMENT_FAILED)
 
     async def cart_attachment_verification(self):
         self.log.info('run cart_attachment_verification')
 
         verification_SRF_value=self.SRF
-        await self.move_linear(sign = 1)
+        await self.move_linear(sign = 1,wait=True)
 
-        while (self.motion.is_moving()):
-            await self.read_sensor_values()
-            await self.calculate_distance_parameters()
+        # while (self.motion.is_moving()):
+        await self.read_sensor_values()
+        await self.calculate_distance_parameters()
+        distance_change = abs(verification_SRF_value - self.SRF)
 
-            if abs(verification_SRF_value - self.SRF) > VERIFICATION_DISTANCE:
-                self.gripper_state['cart_attached'] = False
-                self.state = 'finish'
-                break
-
-            await asyncio.sleep(0.2)
-        cart_attached = self.gripper_state['cart_attached']
-        self.log.info(f'cart verification is: {cart_attached}')
-        if cart_attached:
+        if distance_change > VERIFICATION_DISTANCE:
+            self.gripper_state['cart_attached'] = False
             self.state = 'finish'
+
+            # await asyncio.sleep(0.2)
+        cart_attached = self.gripper_state['cart_attached']
+        self.state = 'finish'
+        if not cart_attached:
+            self.log.error('cart verification failed'
+                    f'distance before verification{verification_SRF_value}'
+                    f'distance after verification{self.SRF}')
+            self.abort (*ERROR_CART_NOT_ATTACHED)
         else:
-            self.abort (ERROR_CART_NOT_ATTACHED)
+            self.log.info(f'cart verification succseeded')
+        
+            
         
         
     async def attach(self):
@@ -139,25 +158,22 @@ class SkillAttachToCart(RayaSkill):
                                 }, 
                             wait=True,
                         )
-            await self.gripper_feedback_cb(gripper_result)
-            await self.gripper_state_classifier()
-            cart_attached = self.gripper_state['cart_attached']
-            self.log.info(f'gripper attachment feedback is: {cart_attached}')
-
-            if cart_attached:
-                self.state = 'attach_verification'
-                await self.cart_attachment_verification()
-            else:
-                self.state = 'finish'
-            
-
         except Exception as error:
+                self.log.error(f'gripper fail error is: {error}'
+                                F'error type: {type(error)}')
+                self.abort(*ERROR_GRIPPER_ATTACHMENT_FAILED)
+                self.state = 'finish'
 
-            self.log.error(
-                f'gripper attachment failed, Exception type: '
-                f'{type(error)}, Exception: {error}')
+        await self.gripper_feedback_cb(gripper_result)
+        await self.gripper_state_classifier()
+        cart_attached = self.gripper_state['cart_attached']
+        self.log.info(f'gripper attachment feedback is: {cart_attached}')
 
-            pass
+        if cart_attached:
+            self.state = 'attach_verification'
+            await self.cart_attachment_verification()
+        else:
+            self.state = 'finish'
 
     async def gripper_feedback_cb(self, gripper_result):
         self.gripper_state['final_position'] = gripper_result['final_position']
@@ -166,6 +182,8 @@ class SkillAttachToCart(RayaSkill):
         self.gripper_state['pressure_reached'] = gripper_result['pressure_reached']
         self.gripper_state['success'] = gripper_result['success']
         self.gripper_state['timeout_reached'] = gripper_result['timeout_reached']
+        self.log.info(gripper_result)
+
 
 
     async def move_linear(self, sign, wait = False):
@@ -181,24 +199,21 @@ class SkillAttachToCart(RayaSkill):
                         wait = wait,
                     )
         except Exception as error:
-            ERROR = [*ERROR_LINEAR_MOVEMENT_FAILED]
-            ERROR[1] += f'{type(error)}, Exception: {error}'
-            self.log.abort(*ERROR)
+            self.log.error(f'linear movement failed, error: {error}')
+            self.abort(*ERROR_LINEAR_MOVEMENT_FAILED)
         if sign == -1:
             await self.cart_distance_verification()
 
     async def timeout_verification (self):
         if self.timer > self.timeout:
-            ERROR = [*ERROR_TIMEOUT_REACHED]
-            ERROR[1] +=  f'timeout: {self.timeout}'
-            self.abort(*ERROR)
+            self.log.error(f'timeout reached: {self.timeout} sec')
+            self.abort(*ERROR_TIMEOUT_REACHED)
             self.state = 'finish'
 
     async def cart_max_distance_verification (self):
         if self.SRF > CART_MAX_DISTANCE:
-            ERROR = [*ERROR_CART_NOT_ACCESSABLE]
-            ERROR[1] +=  f'distance: {self.SRF}'
-            self.abort(*ERROR)
+            self.log.error(f'cart is too far, distance: {self.SRF} cm')
+            self.abort(*ERROR_CART_NOT_ACCESSABLE)
             self.state = 'finish'
 
     async def cart_distance_verification (self):
@@ -216,27 +231,23 @@ class SkillAttachToCart(RayaSkill):
     async def pre_loop_actions(self):
         ### move gripper to pre-grab position
         self.pre_loop_finish = True
-        try:
-            gripper_result = await self.arms.specific_robot_command(
-                            name='cart/execute',
-                            parameters={
-                                    'gripper':'cart',
-                                    'goal':GRIPPER_OPEN_POSITION,
-                                    'velocity':0.5,
-                                    'pressure':GRIPPER_OPEN_PRESSURE_CONST,
-                                    'timeout':10.0
-                                }, 
-                            wait=False,
-                        )
-            self.log.info(f'gripper_result: {type(gripper_result)}')
-            await self.gripper_feedback_cb(gripper_result)
-            print(gripper_result)
+        # try:
+        #     await self.arms.specific_robot_command(
+        #         name='cart/execute',
+        #         parameters={
+        #                 'gripper':'cart',
+        #                 'goal':GRIPPER_OPEN_POSITION,
+        #                 'velocity':0.5,
+        #                 'pressure':GRIPPER_OPEN_PRESSURE_CONST,
+        #                 'timeout':10.0
+        #             }, 
+        #         wait=True,
+        #     )
 
-        except Exception as error:
-                self.log.error(
-                    f'gripper open to pre-grab position failed, Exception '
-                    f'type: {type(error)}, Exception: {error}')
-                pass
+        # except Exception as error:
+        #         self.log.error(f'gripper error: {error}')
+        #         self.abort(*ERROR_GRIPPER_FAILED)
+        #         self.state = 'finish'
         # run approach to tag
         try:
             chest_approach_result = await self.skill_apr2tags.run(
@@ -255,9 +266,9 @@ class SkillAttachToCart(RayaSkill):
             self.log.debug(chest_approach_result)
 
         except Exception as error:
-            ERROR = [*ERROR_APPROACH_FAILED]
-            ERROR[1] +=  f'{type(error)}, Exception: {error}'
-            self.abort(*ERROR)
+            self.log.error ('approach failed, Exception type:'
+                            f'{type(error)}, Exception: {error}')
+            self.abort(*ERROR_APPROACH_FAILED)
             self.state = 'finish'
             self.pre_loop_finish = False
             
@@ -270,11 +281,9 @@ class SkillAttachToCart(RayaSkill):
                 enable_obstacles=False,
                 wait=True)
         except Exception as error:
-            self.log.error(
-                f'180 degree rotation failed, Exception type: '
-                f'{type(error)}, Exception: {error}')
+            self.log.error(f'rotation movement failed, error: {error}')
+            self.abort(*ERROR_ROTATION_MOVEMENT_FAILED)
             self.pre_loop_finish = False
-            raise error
         
         # small angle adjusment
         self.dl=self.sensors.get_sensor_value('cart_sensor')\
@@ -310,11 +319,17 @@ class SkillAttachToCart(RayaSkill):
         self.motion = await self.enable_controller('motion')
 
         ## calibrate cart gripper
-        await self.arms.specific_robot_command(
-            name='cart/calibrate',
-            parameters={'hand':'cart'}, 
-            wait=False
-    )
+        try:
+            await self.arms.specific_robot_command(
+                name='cart/calibrate',
+                parameters={'hand':'cart'}, 
+                wait=False
+            )
+        except Exception as error:
+                self.log.error(f'calibration error: {error}')
+                self.log.abort(*ERROR_GRIPPER_FAILED)
+                self.state = 'finish'
+            
         # declare parametrs from setup args
         self.distance_before_attach = self.setup_args['distance_before_attach']
         self.distance_first_approach = self.setup_args['distance_first_approach']

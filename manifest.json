@@ -8,7 +8,7 @@
         "skills": [
             {
                 "name": "approach_to_tags",
-                "version": "==0.9.3.dev"
+                "version": "==1.0.0"
             }
         ]
     },
