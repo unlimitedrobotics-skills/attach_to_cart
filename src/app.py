@@ -13,6 +13,7 @@ class RayaApplication(RayaApplicationBase):
 
     async def setup(self):
         self.log.info(f'RayaApplication.setup')
+        self.skill_aborted = False
         self.skill_att2cart = self.register_skill(SkillAttachToCart)
         try:
             await self.skill_att2cart.execute_setup(
@@ -47,15 +48,19 @@ class RayaApplication(RayaApplicationBase):
         try:
             await self.skill_att2cart.execute_main()
         except RayaSkillAborted as error:
-            error_code = error[0]
-            error_msg = error[1]
-            self.log.error(f'error code: {error_code}, error: {error_msg}')
+            self.skill_aborted = True
+            self.log.error(f'error code: {error.error_code}, error: {error.error_msg}')
+            self.log.warn('cart NOT connected')
+
+        
 
 
 
 
     async def finish(self):
-        await self.skill_att2cart.execute_finish()
+        if not self.skill_aborted:
+            await self.skill_att2cart.execute_finish()
+
         self.log.info(f'RayaApplication.finish')
 
     def get_arguments(self):

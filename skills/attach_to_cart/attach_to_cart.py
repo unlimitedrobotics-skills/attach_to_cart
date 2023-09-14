@@ -98,7 +98,7 @@ class SkillAttachToCart(RayaSkill):
         verification_min_position = GRIPPER_ATTACHED_POSITION - \
         GRIPPER_ATTACHED_THRESHOLD
 
-        ### TODO uncomment when real jig is ready
+        ### TODO uncomment when real cart jig is ready
 
         # if (self.gripper_state['pressure_reached'] == False and\
             # self.gripper_state['final_position']<verification_max_position and\
@@ -129,8 +129,8 @@ class SkillAttachToCart(RayaSkill):
         cart_attached = self.gripper_state['cart_attached']
         self.state = 'finish'
         if not cart_attached:
-            self.log.error('cart verification failed'
-                    f'distance before verification{verification_SRF_value}'
+            self.log.error('cart verification failed, '
+                    f'distance before verification {verification_SRF_value}, '
                     f'distance after verification{self.SRF}')
             self.abort (*ERROR_CART_NOT_ATTACHED)
         else:
@@ -221,8 +221,8 @@ class SkillAttachToCart(RayaSkill):
                 self.pushing_index += 1
         
         if self.pushing_index > POSITION_VERIFICATION_MAX_INDEX:
-            self.log.error('error, cart is not getting closer'
-                           f'for {self.pushing_index} max readings')
+            self.log.error('failed to attach, cart pushed')
+            self.abort(*ERROR_CART_NOT_GETTING_CLOSER)
             self.state = 'finish'
 
 
@@ -250,12 +250,14 @@ class SkillAttachToCart(RayaSkill):
         #         self.state = 'finish'
         # run approach to tag
         try:
-            chest_approach_result = await self.skill_apr2tags.run(
+            await self.skill_apr2tags.execute_setup(
                 setup_args={
                         'working_cameras': ['nav_bottom', 'nav_top'],
                         'identifier': self.identifier,
                         'tags_size': self.tags_size,
                     },
+            )
+            approach_result = await self.skill_apr2tags.execute_main(
                     execute_args={
                         'distance_to_goal': self.distance_before_attach,
                         'max_angle_error_allowed': MAX_ANGLE_ERROR_ALLOWED,
@@ -263,7 +265,10 @@ class SkillAttachToCart(RayaSkill):
                     },
                     callback_feedback=self.cb_approach_feedback
                 )
-            self.log.debug(chest_approach_result)
+            await self.skill_apr2tags.execute_finish(
+                wait=False
+            )
+            self.log.debug(approach_result)
 
         except Exception as error:
             self.log.error ('approach failed, Exception type:'
@@ -405,6 +410,7 @@ class SkillAttachToCart(RayaSkill):
 
 
     async def finish(self):
+        await self.skill_apr2tags.wait_finish()
         self.log.info('SkillAttachToCart.finish')
 
     async def cb_approach_feedback(self, feedback):

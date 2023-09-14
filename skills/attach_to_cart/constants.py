@@ -7,20 +7,22 @@ NORMALIZED_DELTA_MAX = 0.4
 NORMALIZED_DELTA_MIN = 0.4
 
 DEFAULT_MAX_ANGLE_STEP = 15.0
-FULL_APP_TIMEOUT = 60.0
+FULL_APP_TIMEOUT = 45.0
 
 ###### ERRORS
+
+ERROR_ROTATION_MOVEMENT_FAILED = (6,'rotation motion command failed')
 ERROR_LINEAR_MOVEMENT_FAILED = (5,
-                'gary motion command failed')
-ERROR_ROTATION_MOVEMENT_FAILED = (6,'rotation movement failed')
+                'gary linear motion command failed')
+ERROR_CART_NOT_GETTING_CLOSER = (8,'attach failed, cart pushed')
+ERROR_GRIPPER_FAILED = (7,'gripper opening failed')
 ERROR_APPROACH_FAILED = (4,
                 'approach to tag failed')
-
-ERROR_GRIPPER_FAILED = (7,'gripper opening failed')
 ERROR_GRIPPER_ATTACHMENT_FAILED = (3,'gripper attachment failed')
 ERROR_CART_NOT_ATTACHED = (2,'cart was not attached')
-ERROR_TIMEOUT_REACHED = (1,f'loop timeout reached,{FULL_APP_TIMEOUT}')
+ERROR_TIMEOUT_REACHED = (1,f'loop timeout reached')
 ERROR_CART_NOT_ACCESSABLE = (0, 'cart is too far or not accessable,')
+
 
 ###### ATTACHING PARAMETERS
 ATACHING_DISTANCE_MIN = 250
@@ -32,8 +34,8 @@ MIN_LINEAR_MOVING_VELOCITY = 0.005
 MAX_LINEAR_MOVING_VELOCITY = 0.1
 
 ###### VERIFICATION PARAMETER
-VERIFICATION_DISTANCE = 2.5
-POSITION_VERIFICATION_MAX_INDEX = 6.0
+VERIFICATION_DISTANCE = 3.5
+POSITION_VERIFICATION_MAX_INDEX = 5.0
 
 
 ###### GRIPPER PARAMETERS
