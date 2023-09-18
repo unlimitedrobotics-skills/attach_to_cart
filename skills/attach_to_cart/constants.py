@@ -11,11 +11,12 @@ FULL_APP_TIMEOUT = 45.0
 
 ###### ERRORS
 
+ERROR_SENSOR_NOISE = (9,'attach failed, IR sensor recive too much noise')
+ERROR_CART_NOT_GETTING_CLOSER = (8,'attach failed, cart pushed')
+ERROR_GRIPPER_FAILED = (7,'gripper opening failed')
 ERROR_ROTATION_MOVEMENT_FAILED = (6,'rotation motion command failed')
 ERROR_LINEAR_MOVEMENT_FAILED = (5,
                 'gary linear motion command failed')
-ERROR_CART_NOT_GETTING_CLOSER = (8,'attach failed, cart pushed')
-ERROR_GRIPPER_FAILED = (7,'gripper opening failed')
 ERROR_APPROACH_FAILED = (4,
                 'approach to tag failed')
 ERROR_GRIPPER_ATTACHMENT_FAILED = (3,'gripper attachment failed')
@@ -53,6 +54,8 @@ PRE_ATTACH_RUTATION_SPEED = 10
 ###### SENSOR PARAMETERS
 IR_SENSOR_ID_RIGHT = 2
 IR_SENSOR_ID_LEFT = 1
+IR_SENSOR_MAX_VALUE_VERIFICATION = 2000
+SRF_NOISE_VERIFICATION_DISTANCE = 14.0
 SRF_SENSOR_ID_CENTER = 1
 
 ###### APPROACH PARAMETERS

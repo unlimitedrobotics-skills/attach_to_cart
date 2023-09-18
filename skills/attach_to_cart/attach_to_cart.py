@@ -54,6 +54,14 @@ class SkillAttachToCart(RayaSkill):
         elif self.linear_velocity > MAX_LINEAR_MOVING_VELOCITY:
             self.linear_velocity = MAX_LINEAR_MOVING_VELOCITY
 
+    async def sensor_noise_identifier(self):
+        if self.SRF > SRF_NOISE_VERIFICATION_DISTANCE and\
+            (self.dl > IR_SENSOR_MAX_VALUE_VERIFICATION or\
+             self.dr > IR_SENSOR_MAX_VALUE_VERIFICATION):
+            self.log.warn('IR sensor recive too much noise')
+            self.state = 'finish'
+            self.abort(*ERROR_SENSOR_NOISE)
+
     async def state_classifier(self):
         ### change to parameters
         if (abs(self.delta)>ROTATING_DELTA_MIN and\
@@ -231,23 +239,23 @@ class SkillAttachToCart(RayaSkill):
     async def pre_loop_actions(self):
         ### move gripper to pre-grab position
         self.pre_loop_finish = True
-        # try:
-        #     await self.arms.specific_robot_command(
-        #         name='cart/execute',
-        #         parameters={
-        #                 'gripper':'cart',
-        #                 'goal':GRIPPER_OPEN_POSITION,
-        #                 'velocity':0.5,
-        #                 'pressure':GRIPPER_OPEN_PRESSURE_CONST,
-        #                 'timeout':10.0
-        #             }, 
-        #         wait=True,
-        #     )
+        try:
+            await self.arms.specific_robot_command(
+                name='cart/execute',
+                parameters={
+                        'gripper':'cart',
+                        'goal':GRIPPER_OPEN_POSITION,
+                        'velocity':0.5,
+                        'pressure':GRIPPER_OPEN_PRESSURE_CONST,
+                        'timeout':10.0
+                    }, 
+                wait=True,
+            )
 
-        # except Exception as error:
-        #         self.log.error(f'gripper error: {error}')
-        #         self.abort(*ERROR_GRIPPER_FAILED)
-        #         self.state = 'finish'
+        except Exception as error:
+                self.log.error(f'gripper error: {error}')
+                self.abort(*ERROR_GRIPPER_FAILED)
+                self.state = 'finish'
         # run approach to tag
         try:
             await self.skill_apr2tags.execute_setup(
@@ -313,6 +321,7 @@ class SkillAttachToCart(RayaSkill):
             [f'{IR_SENSOR_ID_RIGHT}']
         self.SRF=self.sensors.get_sensor_value('srf')\
             [f'{SRF_SENSOR_ID_CENTER}'] * 100
+        await self.sensor_noise_identifier()
 
 
     async def setup(self):
