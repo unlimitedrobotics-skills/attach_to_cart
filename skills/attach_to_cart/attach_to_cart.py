@@ -339,7 +339,7 @@ class SkillAttachToCart(RayaSkill):
             await self.arms.specific_robot_command(
                 name='cart/calibrate',
                 parameters={'hand':'cart'}, 
-                wait=True
+                wait=False
             )
         except Exception as error:
                 
