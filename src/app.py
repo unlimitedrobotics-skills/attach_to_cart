@@ -23,9 +23,10 @@ class RayaApplication(RayaApplicationBase):
                         },
                 )
         except RayaSkillAborted as error:
-            error_code = error[0]
-            error_msg = error[1]
-            self.log.error(f'error code: {error_code}, error: {error_msg}')
+            print (f'error: {error},type: {type(error)}')
+            # error_code = error[0]
+            # error_msg = error[1]
+            # self.log.error(f'error code: {error_code}, error: {error_msg}')
 
 
     # async def cb_skill_done(self, exception, result):

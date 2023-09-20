@@ -260,7 +260,7 @@ class SkillAttachToCart(RayaSkill):
         try:
             await self.skill_apr2tags.execute_setup(
                 setup_args={
-                        'working_cameras': ['nav_bottom', 'nav_top'],
+                        'working_cameras': CAMERAS_TO_USE,
                         'identifier': self.identifier,
                         'tags_size': self.tags_size,
                     },
@@ -289,7 +289,7 @@ class SkillAttachToCart(RayaSkill):
         # rotate gary 180 degrees
         try:
             await self.motion.rotate(
-                angle = PRE_ATTACH_ANGLE,
+                angle = PRE_ATTACH_ANGLE_ROTATION,
                 angular_speed= PRE_ATTACH_RUTATION_SPEED,
                 enable_obstacles=False,
                 wait=True)
@@ -298,11 +298,13 @@ class SkillAttachToCart(RayaSkill):
             self.abort(*ERROR_ROTATION_MOVEMENT_FAILED)
             self.pre_loop_finish = False
         
-        # small angle adjusment
+        
         self.dl=self.sensors.get_sensor_value('cart_sensor')\
             [f'{IR_SENSOR_ID_LEFT}']
         self.dr=self.sensors.get_sensor_value('cart_sensor')\
             [f'{IR_SENSOR_ID_RIGHT}']
+        
+        ### small angle adjusment
         # await self.read_sensor_values()
         # await self.calculate_distance_parameters()
         # await self.adjust_angle()
@@ -332,16 +334,18 @@ class SkillAttachToCart(RayaSkill):
         self.sensors = await self.enable_controller('sensors')
         self.motion = await self.enable_controller('motion')
 
-        ## calibrate cart gripper
+        # calibrate cart gripper
         try:
             await self.arms.specific_robot_command(
                 name='cart/calibrate',
                 parameters={'hand':'cart'}, 
-                wait=False
+                wait=True
             )
         except Exception as error:
+                
+                print ('error calibrate')
                 self.log.error(f'calibration error: {error}')
-                self.log.abort(*ERROR_GRIPPER_FAILED)
+                self.abort(*ERROR_GRIPPER_FAILED)
                 self.state = 'finish'
             
         # declare parametrs from setup args
@@ -419,7 +423,7 @@ class SkillAttachToCart(RayaSkill):
 
 
     async def finish(self):
-        await self.skill_apr2tags.wait_finish()
+        self.skill_apr2tags.wait_finish()
         self.log.info('SkillAttachToCart.finish')
 
     async def cb_approach_feedback(self, feedback):
