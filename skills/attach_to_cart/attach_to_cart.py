@@ -261,12 +261,12 @@ class SkillAttachToCart(RayaSkill):
             await self.skill_apr2tags.execute_setup(
                 setup_args={
                         'working_cameras': CAMERAS_TO_USE,
-                        'identifier': self.identifier,
                         'tags_size': self.tags_size,
                     },
             )
             approach_result = await self.skill_apr2tags.execute_main(
                     execute_args={
+                        'identifier': self.identifier,
                         'distance_to_goal': self.distance_before_attach,
                         'max_angle_error_allowed': MAX_ANGLE_ERROR_ALLOWED,
                         'max_y_error_allowed': MAX_Y_ERROR_ALLOWED
