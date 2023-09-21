@@ -25,8 +25,16 @@ class SkillAttachToCart(RayaSkill):
             }
     
     REQUIRED_SETUP_ARGS = {
-        'identifier',
         'tags_size'
+    }
+
+    DEFAULT_EXECUTE_ARGS = {
+        'turn_clockwise': True,
+        'attach': True
+    }
+
+    REQUIRED_EXECUTE_ARGS = {
+        'identifier',
     }
     
 
@@ -75,7 +83,10 @@ class SkillAttachToCart(RayaSkill):
                   (self.dl>ATACHING_DISTANCE_MAX and\
                     self.dr>ATACHING_DISTANCE_MAX and\
                           self.normalized_delta < NORMALIZED_DELTA_MIN)):
-            self.state = 'attaching'
+            if self.attach:
+                self.state = 'attaching'
+            else:
+                self.state = 'detaching'
             return True
         
         else:
@@ -183,6 +194,35 @@ class SkillAttachToCart(RayaSkill):
         else:
             self.state = 'finish'
 
+    async def detach_cart(self):
+        await self.motion.set_velocity(x_velocity=self.linear_velocity,y_velocity=0.0,angular_velocity=0.0,duration=REVERSE_DISTANCE/self.linear_velocity,wait=True)
+        sign = 1 if self.execute_args['turn_clockwise'] else -1
+        await self.motion.rotate(angle=PRE_ATTACH_ANGLE_ROTATION,angular_speed=PRE_ATTACH_RUTATION_SPEED*sign,wait=True)
+        try:
+            gripper_result = await self.arms.specific_robot_command(
+                            name='cart/execute',
+                            parameters={
+                                    'gripper':'cart',
+                                    'goal':GRIPPER_OPEN_POSITION,
+                                    'velocity':0.5,
+                                    'pressure':GRIPPER_OPEN_PRESSURE_CONST,
+                                    'timeout':10.0
+                                },
+                            wait=True,
+                        )
+        except Exception as error:
+                self.log.error(f'gripper fail error is: {error}'
+                                F'error type: {type(error)}')
+                self.abort(*ERROR_GRIPPER_ATTACHMENT_FAILED)
+                self.state = 'finish'
+
+        await self.gripper_feedback_cb(gripper_result)
+        await self.gripper_state_classifier()
+        cart_attached = self.gripper_state['cart_attached']
+        self.log.info(f'gripper attachment feedback is: {cart_attached}')
+
+        self.state = 'finish'
+
     async def gripper_feedback_cb(self, gripper_result):
         self.gripper_state['final_position'] = gripper_result['final_position']
         self.gripper_state['final_pressure'] = gripper_result['final_pressure']
@@ -261,12 +301,12 @@ class SkillAttachToCart(RayaSkill):
             await self.skill_apr2tags.execute_setup(
                 setup_args={
                         'working_cameras': CAMERAS_TO_USE,
-                        'identifier': self.identifier,
                         'tags_size': self.tags_size,
                     },
             )
             approach_result = await self.skill_apr2tags.execute_main(
                     execute_args={
+                        'identifier': self.identifier,
                         'distance_to_goal': self.distance_before_attach,
                         'max_angle_error_allowed': MAX_ANGLE_ERROR_ALLOWED,
                         'max_y_error_allowed': MAX_Y_ERROR_ALLOWED
@@ -415,7 +455,8 @@ class SkillAttachToCart(RayaSkill):
 
             elif self.state == 'attaching': ##attach and verify cart attachment
                 await self.attach() 
-
+            elif self.state == 'detaching':
+                await self.detach_cart()
             
                 
             await asyncio.sleep(0.2)
