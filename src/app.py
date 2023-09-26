@@ -18,7 +18,6 @@ class RayaApplication(RayaApplicationBase):
         try:
             await self.skill_att2cart.execute_setup(
                     setup_args={
-                            'identifier': self.identifier,
                             'tags_size': self.tags_size,
                         },
                 )
@@ -49,6 +48,7 @@ class RayaApplication(RayaApplicationBase):
         try:
             await self.skill_att2cart.execute_main(
                 execute_args={
+                    'identifier': self.identifier,
                     'pre_att_angle':self.pre_att_angle,
                 }
             )

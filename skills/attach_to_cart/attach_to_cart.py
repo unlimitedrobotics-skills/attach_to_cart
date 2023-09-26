@@ -24,12 +24,14 @@ class SkillAttachToCart(RayaSkill):
             'timeout' : FULL_APP_TIMEOUT,
             }
     DEFAULT_EXECUTE_ARGS = {
-            'pre_att_angle':PRE_ATTACH_ANGLE_ROTATION,
+        'pre_att_angle':PRE_ATTACH_ANGLE_ROTATION,
     }
 
     REQUIRED_SETUP_ARGS = {
-        'identifier',
         'tags_size'
+    }
+    REQUIRED_EXECUTE_ARGS = {
+        'identifier',
     }
     
     
@@ -261,13 +263,7 @@ class SkillAttachToCart(RayaSkill):
                 self.abort(*ERROR_GRIPPER_FAILED)
                 self.state = 'finish'
         # run approach to tag
-        try:
-            await self.skill_apr2tags.execute_setup(
-                setup_args={
-                        'working_cameras': CAMERAS_TO_USE,
-                        'tags_size': self.tags_size,
-                    },
-            )
+        try: 
             approach_result = await self.skill_apr2tags.execute_main(
                     execute_args={
                         'identifier': self.identifier,
@@ -283,7 +279,7 @@ class SkillAttachToCart(RayaSkill):
             self.log.debug(approach_result)
 
         except Exception as error:
-            self.log.error ('approach failed, Exception type:'
+            self.log.error ('approach execute failed, Exception type:'
                             f'{type(error)}, Exception: {error}')
             self.abort(*ERROR_APPROACH_FAILED)
             self.state = 'finish'
@@ -351,13 +347,27 @@ class SkillAttachToCart(RayaSkill):
                 self.log.error(f'calibration error: {error}')
                 self.abort(*ERROR_GRIPPER_FAILED)
                 self.state = 'finish'
-            
+        try:
+            await self.skill_apr2tags.execute_setup(
+                setup_args={
+                        'working_cameras': CAMERAS_TO_USE,
+                        'tags_size': self.tags_size,
+                    },
+            )
+        except Exception as error:
+            self.log.error ('approach setup failed, Exception type:'
+                            f'{type(error)}, Exception: {error}')
+            self.abort(*ERROR_APPROACH_FAILED)
+            self.state = 'finish'
+            self.pre_loop_finish = False
+
+
         # declare parametrs from setup args
         self.distance_before_attach = self.setup_args['distance_before_attach']
         self.distance_first_approach = self.setup_args['distance_first_approach']
         self.max_angle_step = self.setup_args['max_angle_step']
         self.tags_size = self.setup_args['tags_size']
-        self.identifier = self.setup_args['identifier']
+        
         self.timeout = self.setup_args['timeout']
 
         #declare variables
@@ -380,10 +390,12 @@ class SkillAttachToCart(RayaSkill):
 
 
     async def main(self):
-        ### approach state
-
         self.log.info('SkillAttachToCart.main')
 
+        ### declare execute args
+        self.identifier = self.execute_args['identifier']
+        self.pre_att_angle = self.execute_args['pre_att_angle']
+        
         await self.pre_loop_actions() ### approach and rotate 
 
         self.start_time = time.time()
