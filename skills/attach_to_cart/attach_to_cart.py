@@ -23,11 +23,15 @@ class SkillAttachToCart(RayaSkill):
             'max_angle_step': DEFAULT_MAX_ANGLE_STEP,
             'timeout' : FULL_APP_TIMEOUT,
             }
-    
+    DEFAULT_EXECUTE_ARGS = {
+            'pre_att_angle':PRE_ATTACH_ANGLE_ROTATION,
+    }
+
     REQUIRED_SETUP_ARGS = {
         'identifier',
         'tags_size'
     }
+    
     
 
     async def calculate_distance_parameters(self):
@@ -140,7 +144,7 @@ class SkillAttachToCart(RayaSkill):
             self.log.error('cart verification failed, '
                     f'distance before verification {verification_SRF_value}, '
                     f'distance after verification{self.SRF}')
-            self.abort (*ERROR_CART_NOT_ATTACHED)
+            # self.abort (*ERROR_CART_NOT_ATTACHED)
         else:
             self.log.info(f'cart verification succseeded')
         
@@ -228,10 +232,10 @@ class SkillAttachToCart(RayaSkill):
         if self.last_SRF < self.SRF:
                 self.pushing_index += 1
         
-        if self.pushing_index > POSITION_VERIFICATION_MAX_INDEX:
-            self.log.error('failed to attach, cart pushed')
-            self.abort(*ERROR_CART_NOT_GETTING_CLOSER)
-            self.state = 'finish'
+        # if self.pushing_index > POSITION_VERIFICATION_MAX_INDEX:
+            # self.log.error('failed to attach, cart pushed')
+            # self.abort(*ERROR_CART_NOT_GETTING_CLOSER)
+            # self.state = 'finish'
 
 
 

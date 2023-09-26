@@ -47,7 +47,11 @@ class RayaApplication(RayaApplicationBase):
 
     async def main(self):
         try:
-            await self.skill_att2cart.execute_main()
+            await self.skill_att2cart.execute_main(
+                execute_args={
+                    'pre_att_angle':self.pre_att_angle,
+                }
+            )
         except RayaSkillAborted as error:
             self.skill_aborted = True
             self.log.error(f'error code: {error.error_code}, error: {error.error_msg}')
@@ -70,6 +74,11 @@ class RayaApplication(RayaApplicationBase):
                 type=float,
                 help='size of tags to be detected',
                 required=True
+            )
+        self.pre_att_angle = self.get_argument('-ra', '--rotation-angle',
+                type=float,
+                help='pre attach rotation angle',
+                required=False
             )
         self.identifier = self.get_argument('-i', '--identifier', 
                 type= int,
