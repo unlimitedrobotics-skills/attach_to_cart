@@ -38,12 +38,6 @@ class RayaApplication(RayaApplicationBase):
     #                 f'{type(exception)} {exception}'
     #             )
 
-
-    async def cb_skill_feedback(self, feedback):
-        
-        self.log.info(feedback)
-
-
     async def main(self):
         try:
             await self.skill_att2cart.execute_main(
@@ -57,10 +51,6 @@ class RayaApplication(RayaApplicationBase):
             self.log.error(f'error code: {error.error_code}, error: {error.error_msg}')
             self.log.warn('cart NOT connected')
 
-        
-
-
-
 
     async def finish(self):
         if not self.skill_aborted:
@@ -68,8 +58,8 @@ class RayaApplication(RayaApplicationBase):
 
         self.log.info(f'RayaApplication.finish')
 
+
     def get_arguments(self):
-        
         self.tags_size = self.get_argument('-s', '--tag-size',
                 type=float,
                 help='size of tags to be detected',
@@ -86,4 +76,9 @@ class RayaApplication(RayaApplicationBase):
                 required=True,
                 default='',
                 help='ids of the apriltags to be used'
-            )  
+            )
+
+    ### callbacks
+
+    async def cb_skill_feedback(self, feedback):
+        self.log.info(feedback)
