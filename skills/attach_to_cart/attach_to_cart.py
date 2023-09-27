@@ -263,6 +263,7 @@ class SkillAttachToCart(RayaSkill):
                 self.abort(*ERROR_GRIPPER_FAILED)
                 self.state = 'finish'
         # run approach to tag
+        approach_result = dict()
         try: 
             approach_result = await self.skill_apr2tags.execute_main(
                     execute_args={
@@ -289,7 +290,8 @@ class SkillAttachToCart(RayaSkill):
         # rotate gary 180 degrees
         try:
             await self.motion.rotate(
-                angle = PRE_ATTACH_ANGLE_ROTATION,
+                angle = PRE_ATTACH_ANGLE_ROTATION \
+                    - approach_result['final_error_angle'],
                 angular_speed= PRE_ATTACH_RUTATION_SPEED,
                 enable_obstacles=False,
                 wait=True)
