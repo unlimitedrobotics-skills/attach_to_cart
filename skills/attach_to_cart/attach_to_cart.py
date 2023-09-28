@@ -22,10 +22,12 @@ class SkillAttachToCart(RayaSkill):
             'distance_first_approach':DEFAULT_FIRST_APPROACH_DISTANCE,
             'max_angle_step': DEFAULT_MAX_ANGLE_STEP,
             'timeout' : FULL_APP_TIMEOUT,
-            'cameras': CAMERAS_TO_USE
+            'cameras': CAMERAS_TO_USE,
+            'approach_to_tags_args': dict(),
             }
     DEFAULT_EXECUTE_ARGS = {
         'pre_att_angle':PRE_ATTACH_ANGLE_ROTATION,
+        'approach_to_tags_args': dict(),
     }
 
     REQUIRED_SETUP_ARGS = {
@@ -59,12 +61,12 @@ class SkillAttachToCart(RayaSkill):
                 self.abort(*ERROR_GRIPPER_FAILED)
                 self.state = 'finish'
         try:
-            await self.skill_apr2tags.execute_setup(
-                setup_args={
-                        'working_cameras': self.setup_args['cameras'],
-                        'tags_size': self.tags_size,
-                    },
-            )
+            setup_args = {
+                'working_cameras': self.setup_args['cameras'],
+                'tags_size': self.tags_size
+            }
+            setup_args.update(self.setup_args['approach_to_tags_args'])
+            await self.skill_apr2tags.execute_setup(setup_args=setup_args)
         except Exception as error:
             self.log.error ('approach setup failed, Exception type:'
                             f'{type(error)}, Exception: {error}')
@@ -394,13 +396,15 @@ class SkillAttachToCart(RayaSkill):
         # run approach to tag
         approach_result = dict()
         try: 
+            execute_args={
+                'identifier': self.identifier,
+                'distance_to_goal': self.distance_before_attach,
+                'max_angle_error_allowed': MAX_ANGLE_ERROR_ALLOWED,
+                'max_y_error_allowed': MAX_Y_ERROR_ALLOWED,
+            }
+            execute_args.update(self.execute_args['approach_to_tags_args'])
             approach_result = await self.skill_apr2tags.execute_main(
-                    execute_args={
-                        'identifier': self.identifier,
-                        'distance_to_goal': self.distance_before_attach,
-                        'max_angle_error_allowed': MAX_ANGLE_ERROR_ALLOWED,
-                        'max_y_error_allowed': MAX_Y_ERROR_ALLOWED
-                    },
+                    execute_args=execute_args,
                     callback_feedback=self.cb_approach_feedback
                 )
             await self.skill_apr2tags.execute_finish(
