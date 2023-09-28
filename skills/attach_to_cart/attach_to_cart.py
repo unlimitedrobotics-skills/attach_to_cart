@@ -421,8 +421,8 @@ class SkillAttachToCart(RayaSkill):
         # rotate gary 180 degrees
         try:
             await self.motion.rotate(
-                angle = PRE_ATTACH_ANGLE_ROTATION \
-                    - approach_result['final_error_angle'],
+                angle = self.setup_args['pre_att_angle'] \
+                    + approach_result['final_error_angle'],
                 angular_speed= PRE_ATTACH_RUTATION_SPEED,
                 enable_obstacles=False,
                 wait=True)
