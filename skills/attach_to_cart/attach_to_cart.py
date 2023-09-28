@@ -22,6 +22,7 @@ class SkillAttachToCart(RayaSkill):
             'distance_first_approach':DEFAULT_FIRST_APPROACH_DISTANCE,
             'max_angle_step': DEFAULT_MAX_ANGLE_STEP,
             'timeout' : FULL_APP_TIMEOUT,
+            'cameras': CAMERAS_TO_USE
             }
     DEFAULT_EXECUTE_ARGS = {
         'pre_att_angle':PRE_ATTACH_ANGLE_ROTATION,
@@ -60,7 +61,7 @@ class SkillAttachToCart(RayaSkill):
         try:
             await self.skill_apr2tags.execute_setup(
                 setup_args={
-                        'working_cameras': CAMERAS_TO_USE,
+                        'working_cameras': self.setup_args['cameras'],
                         'tags_size': self.tags_size,
                     },
             )
