@@ -46,6 +46,30 @@ class SkillAttachToCart(RayaSkill):
         self.arms = await self.enable_controller('arms')
         self.sensors = await self.enable_controller('sensors')
         self.motion = await self.enable_controller('motion')
+        
+        # declare parametrs from setup args
+        self.distance_before_attach = self.setup_args['distance_before_attach']
+        self.distance_first_approach = self.setup_args['distance_first_approach']
+        self.max_angle_step = self.setup_args['max_angle_step']
+        self.tags_size = self.setup_args['tags_size']
+        self.timeout = self.setup_args['timeout']
+
+        # declare variables
+        self.linear_velocity = 0
+        self.SRF = 0
+        self.sign = 1
+        self.state = 'idle'
+        self.normalized_delta = 0
+        self.pushing_index = 0
+        
+
+        self.gripper_state = {'final_position': 0.0,
+                            'final_pressure': 0.0,
+                            'position_reached': False,
+                            'pressure_reached': False,
+                            'success': False,
+                            'timeout_reached': False,
+                            'cart_attached': False}
 
         # calibrate cart gripper
         try:
@@ -73,32 +97,6 @@ class SkillAttachToCart(RayaSkill):
             self.abort(*ERROR_APPROACH_FAILED)
             self.state = 'finish'
             self.pre_loop_finish = False
-
-
-        # declare parametrs from setup args
-        self.distance_before_attach = self.setup_args['distance_before_attach']
-        self.distance_first_approach = self.setup_args['distance_first_approach']
-        self.max_angle_step = self.setup_args['max_angle_step']
-        self.tags_size = self.setup_args['tags_size']
-        
-        self.timeout = self.setup_args['timeout']
-
-        #declare variables
-        self.linear_velocity = 0
-        self.SRF = 0
-        self.sign = 1
-        self.state = 'idle'
-        self.normalized_delta = 0
-        self.pushing_index = 0
-        
-
-        self.gripper_state = {'final_position': 0.0,
-                            'final_pressure': 0.0,
-                            'position_reached': False,
-                            'pressure_reached': False,
-                            'success': False,
-                            'timeout_reached': False,
-                            'cart_attached': False}
 
 
     async def main(self):
