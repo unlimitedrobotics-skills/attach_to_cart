@@ -24,12 +24,13 @@ class SkillAttachToCart(RayaSkill):
             'max_angle_step': 15.0
             }
     REQUIRED_SETUP_ARGS = {
-        'identifier'
+        'identifier',
         'tag_size'
     }
     
 
     async def calculate_distance_parameters(self):
+        ## calculate the distance of each dl and dr (distances) and calculate the angle of oreitattion related to the normal to the cart
         if (self.dl > self.dr):
             self.sign = -1
         else:
@@ -41,13 +42,16 @@ class SkillAttachToCart(RayaSkill):
     
     async def state_classifier(self):
         ### change to parameters
+        ## rotating state 
         if ((self.dl<ROTATING_DISTANCE or self.dr<ROTATING_DISTANCE) and\
              (self.dl+self.dr)/2 < ROTATING_DISTANCE_AV and\
                   abs(self.angle) > ROTATING_ANGLE_MIN):
             self.state = 'rotating'
             return True
         
-        if ((self.dl < ATACHING_DISTANCE_MIN and\
+        ## If the sensor distance is low then min every thing ok you can close
+        ## If the distance is lower then max size and also the orientation angle is low - close ok
+        elif ((self.dl < ATACHING_DISTANCE_MIN and\
               self.dr < ATACHING_DISTANCE_MIN) or\
                   (self.dl<ATACHING_DISTANCE_MAX and\
                     self.dr<ATACHING_DISTANCE_MAX and\
@@ -61,6 +65,7 @@ class SkillAttachToCart(RayaSkill):
         
     ## TODO adjust
     async def adjust_angle(self):
+        ## Control law for minimzing the angle between the cart to the robot
         if (self.angle > self.max_angle_step):
             self.angle = self.max_angle_step
         is_moving = self.motion.is_moving()
@@ -245,6 +250,7 @@ class SkillAttachToCart(RayaSkill):
         #     self.pre_loop_finish = False
         #     raise error
         
+        ##TODO need to remove comment
         # try:
         #     await self.motion.rotate(
         #         angle= 180,
@@ -261,8 +267,10 @@ class SkillAttachToCart(RayaSkill):
         return self.pre_loop_finish
             
     async def read_srf_values(self):
-        self.dl=self.sensors.get_sensor_value('srf')['3'] * 100
-        self.dr=self.sensors.get_sensor_value('srf')['0'] * 100
+        ## read srf value with the index, the srf of the cart is 5 and 2
+        self.dl=self.sensors.get_sensor_value('srf')['5'] * 100
+        self.dr=self.sensors.get_sensor_value('srf')['2'] * 100
+        # self.log.info(f'srf1:{self.dl}, srf2:{self.dr}')
 
 
     async def setup(self):
@@ -296,14 +304,18 @@ class SkillAttachToCart(RayaSkill):
 
         self.log.info('SkillAttachToCart.main')
 
+
+        # Rotate 180 degree with the back to the cart
+        ## and close the cart adapter
+
         await self.pre_loop_actions()
 
         while (True):
-    
+            ## Read the srf values and update them
             await self.read_srf_values()
 
             await self.calculate_distance_parameters()
-
+        #     ## Idetify which state you are
             await self.state_classifier()
 
             if self.state == 'moving':

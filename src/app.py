@@ -7,9 +7,17 @@ from skills.approach_to_tags import SkillApproachToTags
 class RayaApplication(RayaApplicationBase):
 
     async def setup(self):
+        ## First function, setup the application
         self.log.info(f'RayaApplication.setup')
+
+        self.log.info(f'Shit')
+
         self.skill_att2cart = self.register_skill(SkillAttachToCart)
         # self.skill_approach = self.register_skill(SkillApproachToTags)
+        await self.skill_att2cart.execute_setup({
+            'identifier':[1,2],
+            'tag_size': 0.08
+        })
         
 
 
@@ -49,7 +57,7 @@ class RayaApplication(RayaApplicationBase):
         #         'intersection_threshold': 1.0
         #     }
         # )
-        await self.skill_att2cart.run()
+        await self.skill_att2cart.execute_main()
 
 
 
