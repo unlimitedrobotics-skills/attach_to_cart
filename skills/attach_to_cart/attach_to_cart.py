@@ -88,7 +88,7 @@ class SkillAttachToCart(RayaSkill):
             await self.motion.cancel_motion()
 
         await self.motion.rotate(
-            angle= max(abs(self.angle)/360 * 100, MIN_ROTATION_ANGLE_STEP),
+            angle= max(abs(self.angle) * ROTATION_KP, MIN_ROTATION_ANGLE_STEP),
             angular_speed= self.sign * ROTATING_ANGULAR_SPEED,
             enable_obstacles=False,
             wait=True)
@@ -249,15 +249,18 @@ class SkillAttachToCart(RayaSkill):
 
         if abs(cmd_velocity) > MAX_MOVING_VELOCITY:
             cmd_velocity = MAX_MOVING_VELOCITY
-        await self.motion.set_velocity(
-                    x_velocity= -1 * cmd_velocity,
-                    y_velocity=0.0,
-                    angular_velocity=0.0,
-                    duration=2.0,
-                    enable_obstacles=False,
-                    wait=False,
-                )
-
+        try:
+            await self.motion.set_velocity(
+                        x_velocity= -1 * cmd_velocity,
+                        y_velocity=0.0,
+                        angular_velocity=0.0,
+                        duration=2.0,
+                        enable_obstacles=False,
+                        wait=False,
+                    )
+        except Exception as error:
+            self.log.error(f'linear movement failed, error: {error}')
+            self.abort(*ERROR_LINEAR_MOVEMENT_FAILED)
         
     async def _timer_update(self):
         self.timer = time.time() - self.start_time
