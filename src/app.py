@@ -15,8 +15,9 @@ class RayaApplication(RayaApplicationBase):
         self.skill_att2cart = self.register_skill(SkillAttachToCart)
         # self.skill_approach = self.register_skill(SkillApproachToTags)
         await self.skill_att2cart.execute_setup({
-            'identifier':[1,2],
-            'tag_size': 0.08
+            # 'identifier':[1,2],
+            # 'tag_size': 0.08
+            'actual_desired_position': 0.21,
         })
         
 
@@ -54,7 +55,7 @@ class RayaApplication(RayaApplicationBase):
         #         'identifier': [0, 1],
         #         'tags_size': 0.06,
         #         'distance_to_goal': 0.5,
-        #         'intersection_threshold': 1.0
+        #         'intersection_threshold': 1.0identifier
         #     }
         # )
         await self.skill_att2cart.execute_main()
