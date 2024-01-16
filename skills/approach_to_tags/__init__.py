@@ -1,1 +1,0 @@
-from .approach_to_tags import SkillApproachToTags
