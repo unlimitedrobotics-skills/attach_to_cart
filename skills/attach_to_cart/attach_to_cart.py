@@ -5,7 +5,6 @@ import asyncio
 from .constants import *
 from raya.controllers.navigation_controller import POSITION_UNIT, ANGLE_UNIT
 
-from skills.approach_to_tags import SkillApproachToTags
 import math
 import time
 
@@ -90,13 +89,17 @@ class SkillAttachToCart(RayaSkill):
 
         if (is_moving):
             await self.motion.cancel_motion()
+        try:
+            await self.motion.rotate(
+                angle= max(abs(self.angle) * ROTATION_KP, MIN_ROTATION_ANGLE_STEP),
+                angular_speed= self.sign * ROTATING_ANGULAR_SPEED,
+                enable_obstacles=False,
+                wait=True)
+        except Exception as error:
+            self.log.error(f'rotation failed, error: {error}')
+            self.abort(*ERROR_ROTATION_MOVEMENT_FAILED)
 
-        await self.motion.rotate(
-            angle= max(abs(self.angle) * ROTATION_KP, MIN_ROTATION_ANGLE_STEP),
-            angular_speed= self.sign * ROTATING_ANGULAR_SPEED,
-            enable_obstacles=False,
-            wait=True)
-            
+
         self.log.info("finish rotate")
 
     async def gripper_state_classifier(self):
@@ -293,9 +296,6 @@ class SkillAttachToCart(RayaSkill):
             
             self.log.debug(f'gripper result: {gripper_result}')
 
-        # except RayaApplicationNotRegistered:
-        
-        #     pass
             
         except Exception as error:
             self.log.error(
@@ -315,13 +315,9 @@ class SkillAttachToCart(RayaSkill):
        
         return self.pre_loop_finish
 
-    # async def get_orientation(self):
-        # self.orientation = await self.nav.get_position(pos_unit=POSITION_UNIT.METERS, ang_unit=ANGLE_UNIT.DEGREES)
     async def rotation_180(self):
         self.log.info('Rotating 180 degree')
-        ### add correction by orientaion
-        # await self.get_orientation()
-        # self.before_rotation_orientation = self.orientation
+
 
         try:
             await self.motion.rotate(
@@ -331,16 +327,9 @@ class SkillAttachToCart(RayaSkill):
                 wait=True)
             
         except Exception as error:
-            self.log.error(
-                f'180 rotation failed, Exception type: '
-                f'{type(error)}, Exception: {error}')
-            raise error     
+            self.log.error(f'180 rotation failed, error: {error}')
+            self.abort(*ERROR_ROTATION_MOVEMENT_FAILED)     
         
-
-     
-
-    # async def pushing_cart_identifier(self):
-    #     await asyncio.sleep(0.02)
         
     async def _cart_max_distance_verification (self):
         ##TODO add distance from cart by approach input 
@@ -426,9 +415,6 @@ class SkillAttachToCart(RayaSkill):
 
         self.log.info('SkillAttachToCart.main')
 
-
-        # Rotate 180 degree with the back to the cart
-        ## and close the cart adapter
         self.start_time = time.time()
         self.timer = self.start_time
 
